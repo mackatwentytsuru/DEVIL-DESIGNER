@@ -9,9 +9,9 @@ BASE_SETTINGS = dict(quality=14, frames=240, spacing=.02, clearance=.03, weld_di
                      self_distance=.003, gravity_hold=30, sewing_force=50.0, self_collision_from=0,
                      seam_band=0)
 RECIPES = {
-    'tee': dict(BASE_SETTINGS, weld_distance=.015, self_collision_from=50),
-    'tank': dict(BASE_SETTINGS, seam_band=1),
-    'skirt': dict(BASE_SETTINGS, seam_band=1),
+    'tee': dict(BASE_SETTINGS, weld_distance=.02, self_collision_from=50, gravity_hold=60),
+    'tank': dict(BASE_SETTINGS, weld_distance=.02, seam_band=1),
+    'skirt': dict(BASE_SETTINGS, weld_distance=.02, seam_band=1),
 }
 TRACE_EVERY = 20
 PLACEMENTS = ('fitted', 'starter')

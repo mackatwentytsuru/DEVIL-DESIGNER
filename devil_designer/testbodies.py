@@ -201,16 +201,23 @@ def make_body(spec, name=None, collection=None):
     return obj
 
 
+def tape_girth(mesh, matrix, world, height, limit):
+    from .measurements import slice_mesh_z
+    from .placement_fit import convex_hull
+    points = [point for segment in slice_mesh_z(mesh, matrix, height, world) for point in segment if abs(point[0]) <= limit]
+    hull = convex_hull(points)
+    return sum(math.dist(hull[index - 1], hull[index]) for index in range(len(hull))) if len(hull) > 2 else 0.0
+
+
 def body_report(obj):
-    from .measurements import slice_mesh_z, torso_loop_circumference
     import bmesh
     mesh = obj.data
     matrix = obj.matrix_world
     world = [matrix @ vertex.co for vertex in mesh.vertices]
     height = max(point.z for point in world) - min(point.z for point in world)
-    girths = {}
-    for key, fraction in (('bust', .72), ('waist', .62), ('hip', .50)):
-        girths[key] = torso_loop_circumference(slice_mesh_z(mesh, matrix, min(point.z for point in world) + fraction * height, world), 0.0)
+    limit = obj.get('dd_body_shoulder_width', .4) / 2 - .02
+    girths = {key: tape_girth(mesh, matrix, world, min(point.z for point in world) + fraction * height, limit)
+              for key, fraction in (('bust', .72), ('waist', .62), ('hip', .50))}
     bm = bmesh.new()
     try:
         bm.from_mesh(mesh)

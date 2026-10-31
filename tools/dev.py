@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(ROOT))
 from tools.workspace import SCRATCH, clean_scratch, extension_archive, prepare_scratch
-BLENDER_PATH = r"C:\Program Files (x86)\Steam\steamapps\common\Blender\blender.exe"
+BLENDER_PATH = os.environ.get('DD_BLENDER') or r"C:\Program Files (x86)\Steam\steamapps\common\Blender\blender.exe"
 if not os.path.exists(BLENDER_PATH):
     for p in [r"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe",
               r"C:\Program Files\Blender Foundation\Blender 4.2\blender.exe"]:
@@ -46,7 +46,8 @@ def do_tests():
         return False
 
     for t in ["blender_smoke.py", "blender_garment.py", "blender_advanced.py", "blender_silhouette.py",
-              "blender_density.py", "blender_arrangement.py", "blender_tack_binding.py", "blender_tracing.py", "blender_layering.py", "blender_piece_states.py", "blender_sewing_preview.py"]:
+              "blender_density.py", "blender_arrangement.py", "blender_tack_binding.py", "blender_tracing.py", "blender_layering.py", "blender_piece_states.py", "blender_sewing_preview.py",
+              "blender_testbodies.py", "blender_headless_export.py"]:
         if not run_cmd([BLENDER_PATH, "--background", "--factory-startup", "--python-exit-code", "1", "--python", f"tests/{t}"],
                        desc=f"Blender Background: {t}"):
             return False
