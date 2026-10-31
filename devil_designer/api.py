@@ -6,11 +6,12 @@ from dataclasses import dataclass, field
 GARMENT_KINDS = ('tee', 'tank', 'skirt')
 FABRICS = ('SILK', 'KNIT', 'COTTON', 'LINEN', 'DENIM', 'LEATHER')
 BASE_SETTINGS = dict(quality=14, frames=240, spacing=.02, clearance=.03, weld_distance=.01, self_collision=True,
-                     self_distance=.003, gravity_hold=30, sewing_force=50.0)
+                     self_distance=.003, gravity_hold=30, sewing_force=50.0, self_collision_from=0,
+                     seam_band=0)
 RECIPES = {
-    'tee': dict(BASE_SETTINGS),
-    'tank': dict(BASE_SETTINGS),
-    'skirt': dict(BASE_SETTINGS),
+    'tee': dict(BASE_SETTINGS, weld_distance=.015, self_collision_from=50),
+    'tank': dict(BASE_SETTINGS, seam_band=1),
+    'skirt': dict(BASE_SETTINGS, seam_band=1),
 }
 TRACE_EVERY = 20
 PLACEMENTS = ('fitted', 'starter')
@@ -98,10 +99,35 @@ def apply_scene_settings(scene, values):
     scene.frame_set(1)
 
 
-def tune_cloth(simulation, values):
+def seam_band(simulation, rings):
+    import json
+    neighbours = {}
+    for polygon in simulation.data.polygons:
+        for vertex in polygon.vertices:
+            neighbours.setdefault(vertex, set()).update(polygon.vertices)
+    band = {index for pair in json.loads(simulation.get('dd_sewing_pairs', '[]')) for index in pair}
+    frontier = set(band)
+    for _ in range(rings):
+        frontier = {other for vertex in frontier for other in neighbours.get(vertex, ())} - band
+        band |= frontier
+    group = simulation.vertex_groups.new(name='DD Seam Band')
+    group.add(sorted(band), 1.0, 'REPLACE')
+    return group
+
+
+def tune_cloth(simulation, values, start):
     cloth = next(modifier for modifier in simulation.modifiers if modifier.type == 'CLOTH')
-    cloth.collision_settings.self_distance_min = float(values['self_distance'])
+    collision = cloth.collision_settings
+    collision.self_distance_min = float(values['self_distance'])
     cloth.settings.sewing_force_max = float(values['sewing_force'])
+    if values['self_collision'] and int(values['seam_band']) > 0:
+        band = seam_band(simulation, int(values['seam_band']))
+        collision.vertex_group_self_collisions = band.name
+    delay = int(values['self_collision_from'])
+    if values['self_collision'] and delay > 0:
+        for frame, state in ((start, False), (start + delay - 1, False), (start + delay, True)):
+            collision.use_self_collision = state
+            collision.keyframe_insert('use_self_collision', frame=frame)
     return cloth
 
 
@@ -129,7 +155,7 @@ def simulate(context, values, hold):
     tolerance = values['weld_distance']
     simulation = garment.compile_garment(context)
     layering.configure_collision_collection(context, simulation)
-    cloth = tune_cloth(simulation, values)
+    cloth = tune_cloth(simulation, values, scene.frame_start)
     if hold and values['gravity_hold'] > 0:
         hold_gravity(simulation, scene.frame_start, int(values['gravity_hold']))
     trace = []
@@ -185,7 +211,7 @@ def make_garment(kind, body='A', fabric='COTTON', quality=None, frames=None, spa
         low, high = garment.bounds(body)
         metrics = qa.measure(final, simulation, body, context.evaluated_depsgraph_get(), kind,
                              garment.document(scene).uv_layout['scale'], ((low.x + high.x) / 2, (low.y + high.y) / 2),
-                             garment.document(scene))
+                             garment.document(scene), values['weld_distance'])
     verdict = qa.judge(metrics, kind, thresholds)
     report = dict(kind=kind, fabric=fabric, body=body.get('dd_test_body', body.name), placement=placement,
                   settings=values, measurements={key: value for key, value in measurements.items()

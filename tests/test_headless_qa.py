@@ -53,6 +53,13 @@ class MetricTests(unittest.TestCase):
         self.assertEqual(qa.stretch_summary(ratios)['spikes'], 1)
         self.assertEqual(qa.stretch_ratios(points, [[(0, 0), (.001, 0), (0, .001)]], 1.0), [])
 
+    def test_short_edges_need_a_visible_excess_to_count_as_spikes(self):
+        points = [[(0, 0, 0), (.009, 0, 0), (0, .004, 0)]]
+        uvs = [[(0, 0), (.004, 0), (0, .004)]]
+        summary = qa.stretch_summary(qa.stretch_ratios(points, uvs, 1.0))
+        self.assertGreater(summary['max'], 2)
+        self.assertEqual(summary['spikes'], 0)
+
     def test_judge_applies_thresholds_in_one_place(self):
         metrics = dict(seams=dict(open=0), topology=dict(components=1, openings=2),
                        penetration=dict(fraction=0.0, max_depth=0.0), self_intersection=dict(fraction=0.0),

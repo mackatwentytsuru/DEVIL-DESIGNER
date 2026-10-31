@@ -24,6 +24,8 @@ def parse(argv):
     parser.add_argument('--self-distance', type=float, help='Self collision distance in metres (default 0.003).')
     parser.add_argument('--gravity-hold', type=int, help='Frames without gravity while seams close (default 30).')
     parser.add_argument('--sewing-force', type=float, help='Maximum sewing force (default 50).')
+    parser.add_argument('--self-collision-from', type=int, help='Frame offset where self collision starts (default 0).')
+    parser.add_argument('--seam-band', type=int, help='Face rings around seams left out of self collision (default 0).')
     parser.add_argument('--out', required=True, help='Output folder for report.json and other files.')
     parser.add_argument('--export', default='', help='Comma list of fbx,obj.')
     parser.add_argument('--target', default='cc5', choices=('cc5', 'ue', 'blender'))
@@ -36,7 +38,8 @@ def parse(argv):
 
 def tuning(args):
     values = dict(self_collision=None if args.self_collision is None else args.self_collision == 'on',
-                  self_distance=args.self_distance, gravity_hold=args.gravity_hold, sewing_force=args.sewing_force)
+                  self_distance=args.self_distance, gravity_hold=args.gravity_hold, sewing_force=args.sewing_force,
+                  self_collision_from=args.self_collision_from, seam_band=args.seam_band)
     return {key: value for key, value in values.items() if value is not None}
 
 

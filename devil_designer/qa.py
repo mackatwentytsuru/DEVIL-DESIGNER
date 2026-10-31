@@ -11,6 +11,7 @@ THRESHOLDS = {
     'stretch_p99_max': 1.35,
     'stretch_min_rest': .003,
     'spike_ratio': 2.0,
+    'spike_excess': .01,
     'spikes_max': 0,
     'uv_flips_max': 0,
     'uv_out_of_range_max': 0,
@@ -116,13 +117,15 @@ def stretch_ratios(face_points, face_uvs, uv_scale, minimum_rest=THRESHOLDS['str
         for index in range(len(points)):
             rest = math.dist(uvs[index], uvs[index - 1]) * uv_scale
             if rest >= minimum_rest:
-                ratios.append(math.dist(points[index], points[index - 1]) / rest)
+                length = math.dist(points[index], points[index - 1])
+                ratios.append((length / rest, length - rest))
     return ratios
 
 
 def stretch_summary(ratios):
-    values = summary(ratios)
-    values['spikes'] = sum(1 for ratio in ratios if ratio > THRESHOLDS['spike_ratio']) // 2
+    values = summary([ratio for ratio, _ in ratios])
+    values['spikes'] = sum(1 for ratio, excess in ratios
+                           if ratio > THRESHOLDS['spike_ratio'] and excess > THRESHOLDS['spike_excess']) // 2
     return values
 
 
@@ -199,12 +202,12 @@ def self_intersection(points, faces):
     return dict(pairs=pairs, faces=len(involved), fraction=len(involved) / max(1, len(faces)))
 
 
-def measure(final, simulation, body, depsgraph, kind, uv_scale, center=(0.0, 0.0), document=None):
+def measure(final, simulation, body, depsgraph, kind, uv_scale, center=(0.0, 0.0), document=None, tolerance=None):
     gaps = seam_gaps(simulation, depsgraph)
     points, faces, face_uvs = world_mesh(final)
     loops = boundary_loops(faces)
     hem = min(loops, key=lambda loop: sum(points[index][2] for index in loop) / len(loop)) if loops else []
-    tolerance = THRESHOLDS['seam_gap_tolerance']
+    tolerance = THRESHOLDS['seam_gap_tolerance'] if tolerance is None else tolerance
     face_points = [[points[index] for index in face] for face in faces]
     return dict(
         seams=dict(pairs=len(gaps), open=sum(1 for gap in gaps if gap > tolerance), tolerance=tolerance, **{
@@ -230,8 +233,10 @@ def seam_detail(simulation, depsgraph, document, tolerance):
         pairs = records.get(seam.id, {}).get('pairs', [])
         gaps = [math.dist(points[first], points[second]) for first, second in pairs]
         names = [document.find(seam.side(index)[0].pattern).name for index in (0, 1)]
+        worst = max(range(len(gaps)), key=gaps.__getitem__) if gaps else None
+        where = [round(value, 3) for value in points[pairs[worst][0]]] if worst is not None else []
         rows.append(dict(seam=' / '.join(names), pairs=len(gaps), open=sum(1 for gap in gaps if gap > tolerance),
-                         max_gap=max(gaps, default=0.0)))
+                         max_gap=max(gaps, default=0.0), worst_at=where))
     return rows
 
 
